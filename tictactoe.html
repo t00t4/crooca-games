@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe - Croca Games</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="site-header">
+        <h1 class="logo logo--sm">Tic-Tac-Toe</h1>
+    </header>
+    <main>
+        <p id="status" class="game-status">Sua vez (X)</p>
+        <div id="board" class="ttt-board"></div>
+        <div class="scoreboard">
+            <span>Vitórias: <strong id="winsCount">0</strong></span>
+            <span>Empates: <strong id="drawsCount">0</strong></span>
+            <span>Derrotas: <strong id="lossesCount">0</strong></span>
+        </div>
+        <div class="buttons">
+            <button id="restartButton" class="btn btn--primary">Restart Game</button>
+            <button id="backButton" class="btn btn--ghost">Back to Menu</button>
+        </div>
+    </main>
+    <script type="module" src="js/tictactoe.js"></script>
+</body>
+</html>
