@@ -13,15 +13,11 @@ let initialDirectionChosen = false;
 
 const food = [];
 const walls = [];
-const ghosts = [
-    { x: 9, y: 9, dx: 1, dy: 0, color: 'red' },
-    { x: 10, y: 9, dx: -1, dy: 0, color: 'pink' },
-    { x: 9, y: 10, dx: 0, dy: 1, color: 'cyan' },
-    { x: 10, y: 10, dx: 0, dy: -1, color: 'orange' }
-];
+let ghosts = [];
+let gameLoopTimeout = null;
 
 const layout = [
-    // Add your maze layout here, where 0 = empty, 1 = wall, 2 = food, 3 = ghost start, 4 = pacman start
+    // 0 = vazio, 1 = parede, 2 = comida, 4 = início do Pac-Man
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     [1, 4, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
     [1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 1, 2, 2, 1],
@@ -29,15 +25,23 @@ const layout = [
     [1, 2, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 1, 2, 2, 1],
     [1, 2, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 2, 2, 1],
     [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 4, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+    // Corredor no col 10 conecta as duas metades do labirinto (antes eram ilhas isoladas)
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
     [1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 1, 2, 2, 1],
     [1, 2, 1, 0, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2, 1, 0, 1, 2, 2, 1],
     [1, 2, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 1, 2, 2, 1],
     [1, 2, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 2, 2, 1],
     [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+];
+
+const ghostSpawns = [
+    { x: 8, y: 6, color: 'red' },
+    { x: 9, y: 6, color: 'pink' },
+    { x: 10, y: 6, color: 'cyan' },
+    { x: 11, y: 6, color: 'orange' }
 ];
 
 function setupGame() {
@@ -47,18 +51,16 @@ function setupGame() {
                 food.push({ x: col, y: row });
             } else if (layout[row][col] === 1) {
                 walls.push({ x: col, y: row });
-            } else if (layout[row][col] === 3) {
-                ghosts.forEach(ghost => {
-                    ghost.x = col;
-                    ghost.y = row;
-                });
             } else if (layout[row][col] === 4) {
                 pacman.x = col;
                 pacman.y = row;
             }
         }
     }
+    ghosts = ghostSpawns.map(spawn => ({ x: spawn.x, y: spawn.y, color: spawn.color }));
 }
+
+const arrowKeys = new Set([37, 38, 39, 40]);
 
 document.addEventListener('keydown', changeDirection);
 document.getElementById('restartButton').addEventListener('click', () => {
@@ -71,6 +73,7 @@ document.getElementById('backButton').addEventListener('click', () => {
 
 function changeDirection(event) {
     const keyPressed = event.keyCode;
+    if (arrowKeys.has(keyPressed)) event.preventDefault();
 
     if (keyPressed === 37 && dx === 0) { // Left arrow
         dx = -1;
@@ -99,7 +102,7 @@ function gameLoop() {
         moveGhosts();
     }
 
-    if (checkCollision()) {
+    if (checkGhostCollision()) {
         gameRunning = false;
         alert("Game Over!");
         return;
@@ -118,17 +121,22 @@ function gameLoop() {
         return;
     }
 
-    setTimeout(gameLoop, 100);
+    gameLoopTimeout = setTimeout(gameLoop, 100);
 }
 
 function movePacman() {
-    pacman.x += dx;
-    pacman.y += dy;
+    let newX = pacman.x + dx;
+    let newY = pacman.y + dy;
 
-    if (pacman.x < 0) pacman.x = tileCount - 1;
-    if (pacman.x >= tileCount) pacman.x = 0;
-    if (pacman.y < 0) pacman.y = tileCount - 1;
-    if (pacman.y >= tileCount) pacman.y = 0;
+    if (newX < 0) newX = tileCount - 1;
+    if (newX >= tileCount) newX = 0;
+    if (newY < 0) newY = tileCount - 1;
+    if (newY >= tileCount) newY = 0;
+
+    if (checkWallCollision(newX, newY)) return;
+
+    pacman.x = newX;
+    pacman.y = newY;
 
     for (let i = 0; i < food.length; i++) {
         if (pacman.x === food[i].x && pacman.y === food[i].y) {
@@ -159,24 +167,8 @@ function moveGhosts() {
     });
 }
 
-function checkCollision() {
-    const head = pacman;
-
-    // Check collision with walls
-    for (let i = 0; i < walls.length; i++) {
-        if (head.x === walls[i].x && head.y === walls[i].y) {
-            return true;
-        }
-    }
-
-    // Check collision with ghosts
-    for (let i = 0; i < ghosts.length; i++) {
-        if (head.x === ghosts[i].x && head.y === ghosts[i].y) {
-            return true;
-        }
-    }
-
-    return false;
+function checkGhostCollision() {
+    return ghosts.some(ghost => ghost.x === pacman.x && ghost.y === pacman.y);
 }
 
 function checkWallCollision(x, y) {
@@ -228,6 +220,7 @@ function updateScore() {
 }
 
 function resetGame() {
+    clearTimeout(gameLoopTimeout);
     score = 0;
     dx = 0;
     dy = 0;
@@ -235,12 +228,6 @@ function resetGame() {
     initialDirectionChosen = false;
     food.length = 0;
     walls.length = 0;
-    ghosts.forEach(ghost => {
-        ghost.x = 9;
-        ghost.y = 9;
-        ghost.dx = 1;
-        ghost.dy = 0;
-    });
     setupGame();
     gameRunning = true;
 }

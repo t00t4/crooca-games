@@ -9,14 +9,20 @@ let snake = [
     { x: 10, y: 10 }
 ];
 
-let food = {
-    x: Math.floor(Math.random() * tileCount),
-    y: Math.floor(Math.random() * tileCount)
-};
+let food = spawnFood();
 
+// dx/dy é a direção efetivamente aplicada no último passo; nextDx/nextDy é a
+// direção pedida pelo jogador, só aplicada uma vez por tick em moveSnake().
+// Isso evita que duas teclas apertadas no mesmo frame façam a cobra reverter
+// e colidir com o próprio pescoço.
 let dx = 0;
 let dy = 0;
+let nextDx = 0;
+let nextDy = 0;
+let directionQueued = false;
 let gameRunning = true;
+let gameLoopTimeout = null;
+const arrowKeys = new Set([37, 38, 39, 40]);
 
 document.addEventListener('keydown', changeDirection);
 document.getElementById('restartButton').addEventListener('click', () => {
@@ -29,20 +35,25 @@ document.getElementById('backButton').addEventListener('click', () => {
 
 function changeDirection(event) {
     const keyPressed = event.keyCode;
+    if (arrowKeys.has(keyPressed)) event.preventDefault();
+    if (directionQueued) return;
 
-    if (keyPressed === 37 && dx === 0) {
-        dx = -1;
-        dy = 0;
-    } else if (keyPressed === 38 && dy === 0) {
-        dx = 0;
-        dy = -1;
-    } else if (keyPressed === 39 && dx === 0) {
-        dx = 1;
-        dy = 0;
-    } else if (keyPressed === 40 && dy === 0) {
-        dx = 0;
-        dy = 1;
-    }
+    let requestedDx = dx;
+    let requestedDy = dy;
+
+    if (keyPressed === 37) { requestedDx = -1; requestedDy = 0; }
+    else if (keyPressed === 38) { requestedDx = 0; requestedDy = -1; }
+    else if (keyPressed === 39) { requestedDx = 1; requestedDy = 0; }
+    else if (keyPressed === 40) { requestedDx = 0; requestedDy = 1; }
+    else return;
+
+    const isReversal = requestedDx === -dx && requestedDy === -dy;
+    const isSameAxis = requestedDx === dx && requestedDy === dy;
+    if (isReversal || isSameAxis) return;
+
+    nextDx = requestedDx;
+    nextDy = requestedDy;
+    directionQueued = true;
 }
 
 function gameLoop() {
@@ -60,21 +71,35 @@ function gameLoop() {
     drawSnake();
     updateScore();
 
-    setTimeout(gameLoop, 100);
+    gameLoopTimeout = setTimeout(gameLoop, 100);
 }
 
 function moveSnake() {
+    dx = nextDx;
+    dy = nextDy;
+    directionQueued = false;
+
     const head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
     snake.unshift(head);
 
     if (head.x === food.x && head.y === food.y) {
         score++;
-        food.x = Math.floor(Math.random() * tileCount);
-        food.y = Math.floor(Math.random() * tileCount);
+        food = spawnFood();
     } else {
         snake.pop();
     }
+}
+
+function spawnFood() {
+    let candidate;
+    do {
+        candidate = {
+            x: Math.floor(Math.random() * tileCount),
+            y: Math.floor(Math.random() * tileCount)
+        };
+    } while (snake.some(part => part.x === candidate.x && part.y === candidate.y));
+    return candidate;
 }
 
 function checkCollision() {
@@ -115,14 +140,15 @@ function updateScore() {
 }
 
 function resetGame() {
+    clearTimeout(gameLoopTimeout);
     score = 0;
     dx = 0;
     dy = 0;
+    nextDx = 0;
+    nextDy = 0;
+    directionQueued = false;
     snake = [{ x: 10, y: 10 }];
-    food = {
-        x: Math.floor(Math.random() * tileCount),
-        y: Math.floor(Math.random() * tileCount)
-    };
+    food = spawnFood();
     gameRunning = true;
 }
 
