@@ -30,7 +30,18 @@ db.exec(`
         password TEXT NOT NULL,
         created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS scores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        game TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_scores_game_score ON scores(game, score DESC);
 `);
+
+const VALID_GAMES = new Set(['pacman', 'snake', 'tictactoe']);
 
 // Necessário para o Express confiar no cabeçalho X-Forwarded-* do Nginx (proxy reverso com TLS)
 app.set('trust proxy', 1);
@@ -156,6 +167,60 @@ app.post('/logout', (req, res) => {
         res.clearCookie('connect.sid');
         res.status(200).send('Logged out.');
     });
+});
+
+app.get('/api/session', (req, res) => {
+    if (!req.session || !req.session.userId) return res.status(401).json({ authenticated: false });
+    res.json({ authenticated: true, username: req.session.username });
+});
+
+app.post('/api/scores', (req, res) => {
+    if (!req.session || !req.session.userId) return res.status(401).json({ error: 'not authenticated' });
+
+    const { game, score } = req.body;
+    if (!VALID_GAMES.has(game)) return res.status(400).json({ error: 'invalid game' });
+    if (!Number.isFinite(score) || score < 0 || score > 10_000_000) {
+        return res.status(400).json({ error: 'invalid score' });
+    }
+
+    db.prepare('INSERT INTO scores (user_id, game, score) VALUES (?, ?, ?)')
+        .run(req.session.userId, game, Math.round(score));
+
+    res.status(201).json({ ok: true });
+});
+
+app.get('/api/leaderboard/global', (req, res) => {
+    const rows = db.prepare(`
+        SELECT u.username AS username, SUM(best) AS total
+        FROM (
+            SELECT user_id, game, MAX(score) AS best
+            FROM scores
+            GROUP BY user_id, game
+        ) bests
+        JOIN users u ON u.id = bests.user_id
+        GROUP BY bests.user_id
+        ORDER BY total DESC
+        LIMIT 20
+    `).all();
+
+    res.json(rows);
+});
+
+app.get('/api/leaderboard/:game', (req, res) => {
+    const { game } = req.params;
+    if (!VALID_GAMES.has(game)) return res.status(400).json({ error: 'invalid game' });
+
+    const rows = db.prepare(`
+        SELECT u.username AS username, MAX(s.score) AS best
+        FROM scores s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.game = ?
+        GROUP BY s.user_id
+        ORDER BY best DESC
+        LIMIT 20
+    `).all(game);
+
+    res.json(rows);
 });
 
 app.listen(port, () => {

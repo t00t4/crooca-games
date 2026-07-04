@@ -386,10 +386,20 @@ function checkCollisions() {
     }
 }
 
+function submitScore(game, points) {
+    fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ game, score: points }),
+    }).catch(() => {});
+}
+
 function loseLife() {
     lives--;
     if (lives <= 0) {
         gameRunning = false;
+        submitScore('pacman', score);
     } else {
         pacman = createPacman();
         initGhosts();

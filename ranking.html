@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ranking - Croca Games</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="site-header">
+        <h1 class="logo logo--sm">Ranking</h1>
+        <nav class="site-nav">
+            <a class="btn btn--ghost" href="index.html">Voltar</a>
+        </nav>
+    </header>
+    <main>
+        <section class="games-list">
+            <div class="ranking-tabs" id="tabs">
+                <button class="ranking-tab is-active" data-game="global">Geral</button>
+                <button class="ranking-tab" data-game="pacman">Pac-Man</button>
+                <button class="ranking-tab" data-game="snake">Snake</button>
+                <button class="ranking-tab" data-game="tictactoe">Tic-Tac-Toe</button>
+            </div>
+            <table class="ranking-table" id="table">
+                <thead>
+                    <tr>
+                        <th class="rank-col">#</th>
+                        <th>Jogador</th>
+                        <th>Pontos</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <p class="ranking-empty" id="emptyState" hidden>Ninguém pontuou aqui ainda. Seja o primeiro!</p>
+        </section>
+    </main>
+    <footer class="site-footer">
+        <p>&copy; 2024 Croca Games</p>
+    </footer>
+    <script src="js/ranking.js"></script>
+</body>
+</html>

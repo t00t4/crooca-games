@@ -74,6 +74,7 @@ function endGame(result) {
     if (result === HUMAN) {
         wins++;
         statusEl.textContent = 'Você venceu!';
+        submitScore('tictactoe', wins);
     } else if (result === AI) {
         losses++;
         statusEl.textContent = 'O computador venceu!';
@@ -82,6 +83,15 @@ function endGame(result) {
         statusEl.textContent = 'Empate!';
     }
     updateScoreboard();
+}
+
+function submitScore(game, points) {
+    fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ game, score: points }),
+    }).catch(() => {});
 }
 
 function updateScoreboard() {

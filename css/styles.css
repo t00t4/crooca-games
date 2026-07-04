@@ -129,7 +129,14 @@ input:focus-visible {
 .section-title {
     font-size: var(--text-md);
     color: var(--color-text);
-    margin: var(--space-2) 0 var(--space-8);
+    margin: var(--space-2) 0 var(--space-2);
+}
+
+.section-subtitle {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin: 0 0 var(--space-8);
+    max-width: 480px;
 }
 
 /* --- Header / Footer (painel secundário) --- */
@@ -143,6 +150,18 @@ input:focus-visible {
     align-items: center;
     justify-content: center;
     gap: var(--space-6);
+}
+
+.site-header {
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.site-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
 }
 
 .site-footer {
@@ -212,10 +231,10 @@ input:focus-visible {
 }
 
 .game-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: var(--space-6);
-    justify-items: center;
     width: 100%;
     max-width: 1200px;
 }
@@ -226,13 +245,13 @@ input:focus-visible {
     border: 1px solid var(--color-panel-border);
     border-radius: var(--radius-md);
     padding: var(--space-4);
-    width: 100%;
-    max-width: 160px;
+    width: 160px;
     box-shadow: var(--shadow-md);
     transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow: hidden;
 }
 
 .game:hover {
@@ -247,11 +266,13 @@ input:focus-visible {
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
 }
 
 .game__thumb {
     width: 100%;
     border-radius: var(--radius-sm);
+    display: block;
 }
 
 .game__title {
@@ -261,14 +282,50 @@ input:focus-visible {
     color: var(--color-text);
 }
 
+.game__badge {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    z-index: 1;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px var(--space-2);
+    border-radius: 999px;
+}
+
+.game__badge--new {
+    background-color: var(--color-accent-magenta);
+    color: #1a0414;
+    box-shadow: 0 0 12px rgba(255, 43, 214, 0.5);
+}
+
 .game--soon {
-    opacity: 0.55;
+    opacity: 0.9;
+}
+
+.game--soon .game__thumb {
+    filter: grayscale(0.85) brightness(0.5);
+}
+
+.game--soon .game__title {
+    color: var(--color-text-muted);
 }
 
 .game--soon:hover {
     transform: none;
     border-color: var(--color-panel-border);
     box-shadow: var(--shadow-md);
+}
+
+.game__lock {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, calc(-50% - 14px));
+    font-size: 1.5rem;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
 }
 
 .badge {
@@ -430,19 +487,106 @@ canvas {
     color: var(--color-text);
 }
 
+/* --- Ranking --- */
+.ranking-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+}
+
+.ranking-tab {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-4);
+    border-radius: 999px;
+    border: 1px solid var(--color-panel-border);
+    background-color: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.ranking-tab:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.ranking-tab.is-active {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-text-on-accent);
+}
+
+.ranking-table {
+    width: 100%;
+    max-width: 480px;
+    border-collapse: collapse;
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-panel-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.ranking-table th,
+.ranking-table td {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: var(--text-sm);
+}
+
+.ranking-table th {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--color-panel-border);
+}
+
+.ranking-table td {
+    border-bottom: 1px solid var(--color-panel-border);
+    color: var(--color-text);
+}
+
+.ranking-table tr:last-child td {
+    border-bottom: none;
+}
+
+.ranking-table .rank-col {
+    width: 48px;
+    color: var(--color-text-muted);
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+}
+
+.ranking-table tr.is-me td {
+    color: var(--color-accent);
+    font-weight: 700;
+}
+
+.ranking-empty {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    padding: var(--space-8) 0;
+}
+
+.medal-1 { color: #ffd54a; }
+.medal-2 { color: #cfd8e3; }
+.medal-3 { color: #d99a5b; }
+
 /* ============================================================
    4. RESPONSIVO
    ============================================================ */
 @media (max-width: 768px) {
     .logo { font-size: var(--text-md); }
     .logo--sm { font-size: var(--text-base); }
-    .game-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+    .game { width: 130px; }
     .auth-card { padding: var(--space-6); }
 }
 
 @media (max-width: 480px) {
     .site-header { flex-direction: column; gap: var(--space-3); }
-    .game-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+    .game { width: 110px; }
     .buttons { flex-direction: column; align-items: stretch; }
 }
 
