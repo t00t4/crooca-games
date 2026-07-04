@@ -16,11 +16,12 @@ function handleLogin(event) {
     const username = event.target.username.value;
     const password = event.target.password.value;
 
-    fetch('http://localhost:3000/login', {
+    fetch('/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
+        credentials: 'same-origin',
         body: JSON.stringify({ username, password })
     })
     .then(response => response.text())
@@ -43,11 +44,12 @@ function handleSignUp(event) {
         return;
     }
 
-    fetch('http://localhost:3000/signup', {
+    fetch('/signup', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
+        credentials: 'same-origin',
         body: JSON.stringify({ username, password })
     })
     .then(response => response.text())

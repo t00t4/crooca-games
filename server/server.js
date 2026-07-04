@@ -1,70 +1,160 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
 const express = require('express');
-const mysql = require('mysql');
-const bodyParser = require('body-parser');
+const session = require('express-session');
+const Database = require('better-sqlite3');
+const SqliteStore = require('better-sqlite3-session-store')(session);
 const bcrypt = require('bcryptjs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
+const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+if (!process.env.SESSION_SECRET) {
+    console.error('SESSION_SECRET não definido. Configure a variável de ambiente antes de iniciar.');
+    process.exit(1);
+}
 
-// Servir arquivos estáticos
+require('fs').mkdirSync(dataDir, { recursive: true });
+const db = new Database(path.join(dataDir, 'crooca.sqlite'));
+db.pragma('journal_mode = WAL');
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+`);
+
+// Necessário para o Express confiar no cabeçalho X-Forwarded-* do Nginx (proxy reverso com TLS)
+app.set('trust proxy', 1);
+
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            'script-src': ["'self'"],
+            'style-src': ["'self'", 'https://fonts.googleapis.com'],
+            'font-src': ["'self'", 'https://fonts.gstatic.com'],
+            'img-src': ["'self'", 'data:'],
+        },
+    },
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+    store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000,
+    },
+}));
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Muitas tentativas. Tente novamente em alguns minutos.',
+});
+
+function isValidUsername(username) {
+    return typeof username === 'string' && /^[a-zA-Z0-9_]{3,30}$/.test(username);
+}
+
+function isValidPassword(password) {
+    return typeof password === 'string' && password.length >= 6 && password.length <= 200;
+}
+
+function requireAuth(req, res, next) {
+    if (req.session && req.session.userId) return next();
+    return res.redirect('/login.html');
+}
+
+const publicFiles = new Set(['/login.html', '/signup.html']);
+const publicPrefixes = ['/css/', '/js/', '/images/'];
+
+app.use((req, res, next) => {
+    const p = req.path;
+    if (p === '/' || p === '') return requireAuth(req, res, next);
+    if (publicFiles.has(p)) return next();
+    if (publicPrefixes.some((prefix) => p.startsWith(prefix))) return next();
+    if (p.endsWith('.html')) return requireAuth(req, res, next);
+    return next();
+});
+
 app.use(express.static(path.join(__dirname, '..')));
 
-// Configuração do banco de dados
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'croca_games'
-});
+app.get('/health', (req, res) => res.status(200).send('ok'));
 
-db.connect((err) => {
-    if (err) {
-        console.error('Database connection failed:', err.stack);
-        return;
-    }
-    console.log('Connected to database');
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'index.html')));
 
-// Rota GET para servir a página de cadastro
-app.get('/signup', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'signup.html'));
-});
-
-// Rota GET para servir a página de login
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'login.html'));
-});
-
-// Rota POST para cadastro
-app.post('/signup', (req, res) => {
+app.post('/signup', authLimiter, (req, res) => {
     const { username, password } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 8);
 
-    const sql = 'INSERT INTO users (username, password) VALUES (?, ?)';
-    db.query(sql, [username, hashedPassword], (err, result) => {
-        if (err) return res.status(500).send('Error on the server.');
-        res.status(200).send('User registered successfully!');
+    if (!isValidUsername(username)) {
+        return res.status(400).send('Usuário inválido: use 3-30 caracteres (letras, números, _).');
+    }
+    if (!isValidPassword(password)) {
+        return res.status(400).send('Senha inválida: use ao menos 6 caracteres.');
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    try {
+        db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hashedPassword);
+        return res.status(200).send('User registered successfully!');
+    } catch (err) {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).send('Usuário já existe.');
+        }
+        console.error('Erro ao registrar usuário:', err);
+        return res.status(500).send('Error on the server.');
+    }
+});
+
+app.post('/login', authLimiter, (req, res) => {
+    const { username, password } = req.body;
+
+    if (!isValidUsername(username) || !isValidPassword(password)) {
+        return res.status(400).send('Credenciais inválidas.');
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    if (!user) return res.status(401).send('Usuário ou senha incorretos.');
+
+    const passwordIsValid = bcrypt.compareSync(password, user.password);
+    if (!passwordIsValid) return res.status(401).send('Usuário ou senha incorretos.');
+
+    req.session.regenerate((err) => {
+        if (err) {
+            console.error('Erro ao criar sessão:', err);
+            return res.status(500).send('Error on the server.');
+        }
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        res.status(200).send('Login successful!');
     });
 });
 
-// Rota POST para login
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-
-    const sql = 'SELECT * FROM users WHERE username = ?';
-    db.query(sql, [username], (err, results) => {
-        if (err) return res.status(500).send('Error on the server.');
-        if (results.length === 0) return res.status(404).send('No user found.');
-
-        const user = results[0];
-        const passwordIsValid = bcrypt.compareSync(password, user.password);
-
-        if (!passwordIsValid) return res.status(401).send('Password is incorrect.');
-        res.status(200).send('Login successful!');
+app.post('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) console.error('Erro ao encerrar sessão:', err);
+        res.clearCookie('connect.sid');
+        res.status(200).send('Logged out.');
     });
 });
 
