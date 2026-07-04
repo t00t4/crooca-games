@@ -5,52 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Croca Games</title>
     <link rel="stylesheet" href="css/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>Croca Games</h1>
-        <button id="sairButton">Sair</button>
+    <header class="site-header">
+        <h1 class="logo">Croca Games</h1>
+        <button id="sairButton" class="btn btn--ghost">Sair</button>
     </header>
     <main>
         <section class="games-list">
-            <h2>Choose Your Game</h2>
-            <div class="game" id="pacman">
-                <a href="pacman.html">
-                    <img src="images/pacman.png" alt="Pac-Man">
-                    <h3>Pac-Man</h3>
-                </a>
-            </div>            
-            <div class="game" id="snake">
-                <a href="snake.html">
-                    <img src="images/snake.png" alt="Snake">
-                    <h3>Snake</h3>
-                </a>
+            <h2 class="section-title">Choose Your Game</h2>
+            <div class="game-grid">
+                <div class="game" id="pacman">
+                    <a class="game__link" href="pacman.html">
+                        <img class="game__thumb" src="images/pacman.png" alt="Pac-Man">
+                        <h3 class="game__title">Pac-Man</h3>
+                    </a>
+                </div>
+                <div class="game" id="snake">
+                    <a class="game__link" href="snake.html">
+                        <img class="game__thumb" src="images/snake.png" alt="Snake">
+                        <h3 class="game__title">Snake</h3>
+                    </a>
+                </div>
+                <div class="game game--soon" id="tictactoe">
+                    <img class="game__thumb" src="images/tictactoe.png" alt="Tic-Tac-Toe">
+                    <h3 class="game__title">Tic-Tac-Toe</h3>
+                    <span class="badge">Em breve</span>
+                </div>
+                <div class="game game--soon" id="spaceinvaders">
+                    <img class="game__thumb" src="images/spaceinvaders.png" alt="Space Invaders">
+                    <h3 class="game__title">Space Invaders</h3>
+                    <span class="badge">Em breve</span>
+                </div>
+                <div class="game game--soon" id="asteroids">
+                    <img class="game__thumb" src="images/asteroids.png" alt="Asteroids">
+                    <h3 class="game__title">Asteroids</h3>
+                    <span class="badge">Em breve</span>
+                </div>
+                <div class="game game--soon" id="pong">
+                    <img class="game__thumb" src="images/pong.png" alt="Pong">
+                    <h3 class="game__title">Pong</h3>
+                    <span class="badge">Em breve</span>
+                </div>
+                <div class="game game--soon" id="breakout">
+                    <img class="game__thumb" src="images/breakout.png" alt="Breakout">
+                    <h3 class="game__title">Breakout</h3>
+                    <span class="badge">Em breve</span>
+                </div>
             </div>
-            <div class="game" id="tictactoe">
-                <img src="images/tictactoe.png" alt="Tic-Tac-Toe">
-                <h3>Tic-Tac-Toe</h3>
-            </div>
-            <div class="game" id="spaceinvaders">
-                <img src="images/spaceinvaders.png" alt="Space Invaders">
-                <h3>Space Invaders</h3>
-            </div>
-            <div class="game" id="asteroids">
-                <img src="images/asteroids.png" alt="Asteroids">
-                <h3>Asteroids</h3>
-            </div>
-            <div class="game" id="pong">
-                <img src="images/pong.png" alt="Pong">
-                <h3>Pong</h3>
-            </div>
-            <div class="game" id="breakout">
-                <img src="images/breakout.png" alt="Breakout">
-                <h3>Breakout</h3>
-            </div>             
-            <!-- Adicione mais jogos conforme necessário -->
         </section>
     </main>
-    <footer>
+    <footer class="site-footer">
         <p>&copy; 2024 Croca Games</p>
     </footer>
     <script src="js/logout.js"></script>

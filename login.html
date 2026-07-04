@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Croca Games</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="login-container">
-        <h1>Login</h1>
-        <form id="loginForm">
-            <label for="username">Username:</label>
+    <div class="auth-card">
+        <h1 class="logo logo--sm">Login</h1>
+        <form id="loginForm" class="form">
+            <label for="username">Username</label>
             <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
+            <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
-            <button type="submit">Login</button>
+            <button type="submit" class="btn btn--primary">Login</button>
         </form>
-        <p>Don't have an account? <a href="signup.html">Sign up here</a>.</p>
+        <p class="form__hint">Don't have an account? <a href="signup.html">Sign up here</a>.</p>
     </div>
     <script src="js/auth.js"></script>
 </body>

@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up - Croca Games</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="signup-container">
-        <h1>Sign Up</h1>
-        <form id="signupForm">
-            <label for="username">Username:</label>
+    <div class="auth-card">
+        <h1 class="logo logo--sm">Sign Up</h1>
+        <form id="signupForm" class="form">
+            <label for="username">Username</label>
             <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
+            <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
-            <label for="confirmPassword">Confirm Password:</label>
+            <label for="confirmPassword">Confirm Password</label>
             <input type="password" id="confirmPassword" name="confirmPassword" required>
-            <button type="submit">Sign Up</button>
+            <button type="submit" class="btn btn--primary">Sign Up</button>
         </form>
-        <p>Already have an account? <a href="login.html">Login here</a>.</p>
+        <p class="form__hint">Already have an account? <a href="login.html">Login here</a>.</p>
     </div>
     <script src="js/auth.js"></script>
 </body>
