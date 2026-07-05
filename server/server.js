@@ -41,7 +41,7 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_scores_game_score ON scores(game, score DESC);
 `);
 
-const VALID_GAMES = new Set(['pacman', 'snake', 'tictactoe', 'pong', 'asteroids']);
+const VALID_GAMES = new Set(['pacman', 'snake', 'tictactoe', 'pong', 'asteroids', 'breakout']);
 
 // Necessário para o Express confiar no cabeçalho X-Forwarded-* do Nginx (proxy reverso com TLS)
 app.set('trust proxy', 1);
