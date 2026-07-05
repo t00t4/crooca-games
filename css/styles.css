@@ -154,8 +154,6 @@ input:focus-visible {
 
 .site-header {
     justify-content: space-between;
-    max-width: 1200px;
-    margin: 0 auto;
 }
 
 .site-nav {
