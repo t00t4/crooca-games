@@ -392,6 +392,26 @@ input:focus-visible {
     margin-top: var(--space-6);
 }
 
+.form__message {
+    margin: var(--space-4) 0 0;
+    font-size: var(--text-sm);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+
+.form__message--error {
+    color: var(--color-danger);
+    background-color: rgba(255, 92, 122, 0.08);
+    border: 1px solid rgba(255, 92, 122, 0.3);
+}
+
+.form__message--ok {
+    color: var(--color-accent);
+    background-color: rgba(45, 226, 230, 0.08);
+    border: 1px solid rgba(45, 226, 230, 0.3);
+}
+
 .form__hint {
     margin-top: var(--space-6);
     font-size: var(--text-sm);

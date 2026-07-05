@@ -43,8 +43,13 @@ db.exec(`
 
 const VALID_GAMES = new Set(['pacman', 'snake', 'tictactoe', 'pong', 'asteroids', 'breakout', 'spaceinvaders']);
 
+// Hash "isca": comparado quando o usuário não existe, para o tempo de resposta
+// do login ser o mesmo com ou sem usuário (evita enumeração por timing).
+const DUMMY_HASH = bcrypt.hashSync('timing-attack-mitigation', 10);
+
 // Necessário para o Express confiar no cabeçalho X-Forwarded-* do Nginx (proxy reverso com TLS)
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 app.use(helmet({
     contentSecurityPolicy: {
@@ -54,14 +59,19 @@ app.use(helmet({
             'style-src': ["'self'", 'https://fonts.googleapis.com'],
             'font-src': ["'self'", 'https://fonts.gstatic.com'],
             'img-src': ["'self'", 'data:'],
+            'connect-src': ["'self'"],
+            'object-src': ["'none'"],
+            'base-uri': ["'self'"],
+            'frame-ancestors': ["'none'"],
         },
     },
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '16kb' }));
+app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 
 app.use(session({
+    name: 'croca.sid',
     store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -74,6 +84,7 @@ app.use(session({
     },
 }));
 
+// --- Rate limiting ---
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -82,6 +93,15 @@ const authLimiter = rateLimit({
     message: 'Muitas tentativas. Tente novamente em alguns minutos.',
 });
 
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'too many requests' },
+});
+
+// --- Validação ---
 function isValidUsername(username) {
     return typeof username === 'string' && /^[a-zA-Z0-9_]{3,30}$/.test(username);
 }
@@ -90,28 +110,56 @@ function isValidPassword(password) {
     return typeof password === 'string' && password.length >= 6 && password.length <= 200;
 }
 
+// --- Autenticação ---
 function requireAuth(req, res, next) {
-    if (req.session && req.session.userId) return next();
+    if (req.session && req.session.userId) {
+        // Páginas autenticadas nunca devem ser cacheadas por proxies compartilhados.
+        res.set('Cache-Control', 'no-store');
+        return next();
+    }
     return res.redirect('/login.html');
 }
 
-const publicFiles = new Set(['/login.html', '/signup.html']);
-const publicPrefixes = ['/css/', '/js/', '/images/'];
+function requireApiAuth(req, res, next) {
+    if (req.session && req.session.userId) return next();
+    return res.status(401).json({ error: 'not authenticated' });
+}
+
+// --- Gate de acesso (default-deny) ---
+// Só passam adiante rotas explicitamente permitidas. Qualquer outra coisa
+// (código-fonte, banco de dados, Dockerfile, dotfiles, /server/*) recebe 404,
+// nunca chegando ao express.static que serve a raiz do projeto.
+const PUBLIC_FILES = new Set(['/login.html', '/signup.html']);
+const ASSET_PREFIXES = ['/css/', '/js/', '/images/'];
+const AUTH_ENDPOINTS = new Set(['/login', '/signup', '/logout', '/health']);
 
 app.use((req, res, next) => {
     const p = req.path;
-    if (p === '/' || p === '') return requireAuth(req, res, next);
-    if (publicFiles.has(p)) return next();
-    if (publicPrefixes.some((prefix) => p.startsWith(prefix))) return next();
-    if (p.endsWith('.html')) return requireAuth(req, res, next);
-    return next();
+
+    // Endpoints de API (cada um cuida da própria autenticação)
+    if (p.startsWith('/api/')) return next();
+
+    // Endpoints de autenticação e healthcheck
+    if (AUTH_ENDPOINTS.has(p)) return next();
+
+    // Páginas públicas de login/cadastro
+    if (PUBLIC_FILES.has(p)) return next();
+
+    // Assets estáticos públicos (css/js/images). O express.static bloqueia
+    // travessia de diretório ("..") por conta própria.
+    if (ASSET_PREFIXES.some((prefix) => p.startsWith(prefix))) return next();
+
+    // Home e qualquer página .html exigem autenticação
+    if (p === '/' || p === '' || p.endsWith('.html')) return requireAuth(req, res, next);
+
+    // Tudo o mais é negado.
+    return res.status(404).send('Not found');
 });
 
 app.use(express.static(path.join(__dirname, '..')));
 
+// --- Rotas ---
 app.get('/health', (req, res) => res.status(200).send('ok'));
-
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'index.html')));
 
 app.post('/signup', authLimiter, (req, res) => {
     const { username, password } = req.body;
@@ -127,7 +175,7 @@ app.post('/signup', authLimiter, (req, res) => {
 
     try {
         db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run(username, hashedPassword);
-        return res.status(200).send('User registered successfully!');
+        return res.status(201).send('User registered successfully!');
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
             return res.status(409).send('Usuário já existe.');
@@ -145,10 +193,15 @@ app.post('/login', authLimiter, (req, res) => {
     }
 
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!user) return res.status(401).send('Usuário ou senha incorretos.');
 
-    const passwordIsValid = bcrypt.compareSync(password, user.password);
-    if (!passwordIsValid) return res.status(401).send('Usuário ou senha incorretos.');
+    // Sempre executa um compare (contra o hash do usuário ou o hash isca) para
+    // que o tempo de resposta não revele se o usuário existe.
+    const hashToCompare = user ? user.password : DUMMY_HASH;
+    const passwordIsValid = bcrypt.compareSync(password, hashToCompare);
+
+    if (!user || !passwordIsValid) {
+        return res.status(401).send('Usuário ou senha incorretos.');
+    }
 
     req.session.regenerate((err) => {
         if (err) {
@@ -164,7 +217,7 @@ app.post('/login', authLimiter, (req, res) => {
 app.post('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) console.error('Erro ao encerrar sessão:', err);
-        res.clearCookie('connect.sid');
+        res.clearCookie('croca.sid');
         res.status(200).send('Logged out.');
     });
 });
@@ -174,9 +227,7 @@ app.get('/api/session', (req, res) => {
     res.json({ authenticated: true, username: req.session.username });
 });
 
-app.post('/api/scores', (req, res) => {
-    if (!req.session || !req.session.userId) return res.status(401).json({ error: 'not authenticated' });
-
+app.post('/api/scores', apiLimiter, requireApiAuth, (req, res) => {
     const { game, score } = req.body;
     if (!VALID_GAMES.has(game)) return res.status(400).json({ error: 'invalid game' });
     if (!Number.isFinite(score) || score < 0 || score > 10_000_000) {
@@ -189,7 +240,7 @@ app.post('/api/scores', (req, res) => {
     res.status(201).json({ ok: true });
 });
 
-app.get('/api/leaderboard/global', (req, res) => {
+app.get('/api/leaderboard/global', requireApiAuth, (req, res) => {
     const rows = db.prepare(`
         SELECT u.username AS username, SUM(best) AS total
         FROM (
@@ -206,7 +257,7 @@ app.get('/api/leaderboard/global', (req, res) => {
     res.json(rows);
 });
 
-app.get('/api/leaderboard/:game', (req, res) => {
+app.get('/api/leaderboard/:game', requireApiAuth, (req, res) => {
     const { game } = req.params;
     if (!VALID_GAMES.has(game)) return res.status(400).json({ error: 'invalid game' });
 
