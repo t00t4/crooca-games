@@ -420,6 +420,14 @@ canvas {
     border-radius: var(--radius-sm);
     background-color: #000;
     box-shadow: var(--glow-accent);
+    max-width: 100%;
+    height: auto;
+}
+
+.game-hint {
+    margin-top: var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
 }
 
 .buttons {
