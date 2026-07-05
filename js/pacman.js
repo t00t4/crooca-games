@@ -95,6 +95,7 @@ let score = 0;
 let lives = 3;
 let level = 1;
 let gameRunning = true;
+let paused = false;
 let gameLoopId = null;
 let mouthAngle = 0;
 let mouthDir = 1;
@@ -119,13 +120,6 @@ function buildMap() {
             if (map[r][c] === 2 || map[r][c] === 3) dotsTotal++;
         }
     }
-}
-
-function tileAt(x, y) {
-    const c = wrapCol(Math.round(x));
-    const r = Math.round(y);
-    if (r < 0 || r >= ROWS) return 1;
-    return map[r][c];
 }
 
 function wrapCol(c) {
@@ -600,6 +594,12 @@ const KEY_TO_DIR = {
 };
 
 document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (gameRunning) paused = !paused;
+        return;
+    }
+    if (paused) return;
     if (KEY_TO_DIR[e.code]) {
         e.preventDefault();
         pacman.nextDir = KEY_TO_DIR[e.code];
@@ -655,6 +655,8 @@ function render() {
 
     if (!gameRunning) {
         drawOverlay('GAME OVER', `Score: ${score} — clique em Restart`);
+    } else if (paused) {
+        drawOverlay('PAUSADO', 'Pressione P para continuar');
     }
 }
 
@@ -664,7 +666,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     dt = Math.min(dt, 1 / 30); // evita saltos grandes se a aba ficar em background
 
-    if (gameRunning) {
+    if (gameRunning && !paused) {
         update(dt);
     }
     render();
@@ -684,6 +686,7 @@ function startGame() {
     globalMode = GHOST_MODES.SCATTER;
     frightenedTimer = 0;
     gameRunning = true;
+    paused = false;
     lastTime = 0;
 
     if (gameLoopId) cancelAnimationFrame(gameLoopId);

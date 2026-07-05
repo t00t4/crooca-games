@@ -39,6 +39,7 @@ let directionQueued = false;
 
 let score = 0;
 let gameRunning = true;
+let paused = false;
 let gameLoopId = null;
 
 const BASE_TICK_MS = 130;
@@ -61,6 +62,13 @@ document.getElementById('backButton').addEventListener('click', () => {
 });
 
 function changeDirection(event) {
+    if (event.code === 'KeyP' || event.code === 'Escape') {
+        event.preventDefault();
+        if (gameRunning) paused = !paused;
+        return;
+    }
+    if (paused) return;
+
     const dir = KEY_TO_DIR[event.code];
     if (!dir) return;
     event.preventDefault();
@@ -106,7 +114,11 @@ function tick() {
 
 function checkCollision(head) {
     if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) return true;
-    return snake.some(part => part.x === head.x && part.y === head.y);
+    // Se não vai comer, a cauda anda junto e libera a própria casa: perseguir o
+    // rabo de perto não deveria contar como colisão (só quando a cobra cresce).
+    const growing = head.x === food.x && head.y === food.y;
+    const body = growing ? snake : snake.slice(0, -1);
+    return body.some(part => part.x === head.x && part.y === head.y);
 }
 
 function spawnFood() {
@@ -258,6 +270,18 @@ function drawOverlay() {
     ctx.fillText(`Score: ${score} — clique em Restart`, canvas.width / 2, ROWS * TILE / 2 + 20);
 }
 
+function drawPauseOverlay() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, canvas.width, ROWS * TILE);
+    ctx.font = 'bold 20px "Press Start 2P", monospace';
+    ctx.fillStyle = COLORS.head;
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSADO', canvas.width / 2, ROWS * TILE / 2 - 10);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText('Pressione P para continuar', canvas.width / 2, ROWS * TILE / 2 + 20);
+}
+
 function render(alpha) {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -268,6 +292,7 @@ function render(alpha) {
     drawHUD();
 
     if (!gameRunning) drawOverlay();
+    else if (paused) drawPauseOverlay();
 }
 
 function gameLoop(timestamp) {
@@ -276,7 +301,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     dt = Math.min(dt, 100);
 
-    if (gameRunning) {
+    if (gameRunning && !paused) {
         accumulator += dt;
         while (accumulator >= tickMs) {
             tick();
@@ -302,6 +327,7 @@ function startGame() {
     accumulator = 0;
     lastTime = 0;
     gameRunning = true;
+    paused = false;
 
     if (gameLoopId) cancelAnimationFrame(gameLoopId);
     gameLoopId = requestAnimationFrame(gameLoop);

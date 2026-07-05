@@ -64,6 +64,7 @@ let score = 0;
 let lives = 3;
 let wave = 1;
 let gameRunning = true;
+let paused = false;
 let gameLoopId = null;
 let lastTime = 0;
 
@@ -71,6 +72,12 @@ const KEY_LEFT = new Set(['ArrowLeft', 'KeyA']);
 const KEY_RIGHT = new Set(['ArrowRight', 'KeyD']);
 
 document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (gameRunning) paused = !paused;
+        return;
+    }
+    if (paused) return;
     if (KEY_LEFT.has(e.code)) { leftPressed = true; e.preventDefault(); }
     if (KEY_RIGHT.has(e.code)) { rightPressed = true; e.preventDefault(); }
     if (e.code === 'Space') { e.preventDefault(); fireBullet(); }
@@ -78,6 +85,13 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     if (KEY_LEFT.has(e.code)) leftPressed = false;
     if (KEY_RIGHT.has(e.code)) rightPressed = false;
+});
+
+// Se a janela perder o foco com uma tecla pressionada, o keyup correspondente
+// nunca chega e o movimento fica "preso" ligado para sempre.
+window.addEventListener('blur', () => {
+    leftPressed = false;
+    rightPressed = false;
 });
 
 document.getElementById('restartButton').addEventListener('click', startGame);
@@ -210,6 +224,11 @@ function hitsBunker(bunkerList, x, y) {
 }
 
 function updateBullets(dt) {
+    // updateEnemies() pode encerrar o jogo (invasão) e mesmo assim esta função
+    // ainda rodaria no mesmo frame; sem essa guarda, um tiro inimigo poderia
+    // tirar mais uma vida e reenviar o score já após o game over.
+    if (!gameRunning) return;
+
     for (let i = playerBullets.length - 1; i >= 0; i--) {
         const b = playerBullets[i];
         b.y -= PLAYER_BULLET_SPEED * dt;
@@ -354,6 +373,18 @@ function drawOverlay() {
     ctx.fillText(`Score: ${score} — clique em Restart`, W / 2, H / 2 + 24);
 }
 
+function drawPauseOverlay() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = 'bold 20px "Press Start 2P", monospace';
+    ctx.fillStyle = COLORS.player;
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSADO', W / 2, H / 2);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText('Pressione P para continuar', W / 2, H / 2 + 28);
+}
+
 function render() {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, W, H);
@@ -365,6 +396,7 @@ function render() {
     drawHUD();
 
     if (!gameRunning) drawOverlay();
+    else if (paused) drawPauseOverlay();
 }
 
 function gameLoop(timestamp) {
@@ -373,7 +405,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     dt = Math.min(dt, 1 / 30);
 
-    if (gameRunning) {
+    if (gameRunning && !paused) {
         updatePlayer(dt);
         updateEnemies(dt);
         updateBullets(dt);
@@ -394,6 +426,7 @@ function startGame() {
     fireTimer = 0;
     enemyDropTimer = 1.4;
     gameRunning = true;
+    paused = false;
     lastTime = 0;
     buildEnemies();
     buildBunkers();

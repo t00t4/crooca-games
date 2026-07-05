@@ -32,6 +32,7 @@ let score = 0;
 let lives = 3;
 let wave = 1;
 let gameRunning = true;
+let paused = false;
 let gameLoopId = null;
 let lastTime = 0;
 let fireTimer = 0;
@@ -44,12 +45,24 @@ const KEY_MAP = {
 };
 
 document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (gameRunning) paused = !paused;
+        return;
+    }
+    if (paused) return;
     const action = KEY_MAP[e.code];
     if (action) { keys[action] = true; e.preventDefault(); }
 });
 document.addEventListener('keyup', (e) => {
     const action = KEY_MAP[e.code];
     if (action) keys[action] = false;
+});
+
+// Se a janela perder o foco com uma tecla pressionada, o keyup correspondente
+// nunca chega e a nave ficaria acelerando/girando para sempre.
+window.addEventListener('blur', () => {
+    keys = {};
 });
 
 document.getElementById('restartButton').addEventListener('click', startGame);
@@ -74,6 +87,21 @@ function wrap(v, max) {
 
 function dist(a, b) {
     return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// Distância considerando o wraparound da tela: sem isso, uma nave/tiro perto
+// da borda esquerda e um asteroide perto da borda direita pareciam longe um
+// do outro na conta, quando na verdade estão adjacentes (só "deram a volta").
+function wrappedDelta(d, max) {
+    if (d > max / 2) return d - max;
+    if (d < -max / 2) return d + max;
+    return d;
+}
+
+function distWrapped(a, b) {
+    const dx = wrappedDelta(a.x - b.x, W);
+    const dy = wrappedDelta(a.y - b.y, H);
+    return Math.hypot(dx, dy);
 }
 
 function createShip() {
@@ -117,7 +145,7 @@ function spawnWave(n) {
         do {
             x = Math.random() * W;
             y = Math.random() * H;
-        } while (dist({ x, y }, ship) < 120);
+        } while (distWrapped({ x, y }, ship) < 120);
         asteroids.push(createAsteroid('large', x, y));
     }
 }
@@ -222,7 +250,7 @@ function checkCollisions() {
         const b = bullets[bi];
         for (let ai = asteroids.length - 1; ai >= 0; ai--) {
             const a = asteroids[ai];
-            if (dist(b, a) < a.radius) {
+            if (distWrapped(b, a) < a.radius) {
                 bullets.splice(bi, 1);
                 asteroids.splice(ai, 1);
                 splitAsteroid(a);
@@ -234,7 +262,7 @@ function checkCollisions() {
     if (ship.invuln > 0) return;
 
     for (const a of asteroids) {
-        if (dist(ship, a) < a.radius + SHIP_RADIUS * 0.7) {
+        if (distWrapped(ship, a) < a.radius + SHIP_RADIUS * 0.7) {
             loseLife();
             return;
         }
@@ -253,7 +281,7 @@ function loseLife() {
 }
 
 function checkWaveClear() {
-    if (asteroids.length === 0) {
+    if (gameRunning && asteroids.length === 0) {
         wave++;
         spawnWave(Math.min(2 + wave, 8));
     }
@@ -373,6 +401,18 @@ function drawOverlay() {
     ctx.fillText(`Score: ${score} — clique em Restart`, W / 2, H / 2 + 24);
 }
 
+function drawPauseOverlay() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = 'bold 20px "Press Start 2P", monospace';
+    ctx.fillStyle = COLORS.ship;
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSADO', W / 2, H / 2);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText('Pressione P para continuar', W / 2, H / 2 + 28);
+}
+
 function render() {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, W, H);
@@ -384,6 +424,7 @@ function render() {
     drawHUD();
 
     if (!gameRunning) drawOverlay();
+    else if (paused) drawPauseOverlay();
 }
 
 function gameLoop(timestamp) {
@@ -392,7 +433,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     dt = Math.min(dt, 1 / 30);
 
-    if (gameRunning) {
+    if (gameRunning && !paused) {
         updateShip(dt);
         updateBullets(dt);
         updateAsteroids(dt);
@@ -416,6 +457,7 @@ function startGame() {
     wave = 1;
     fireTimer = 0;
     gameRunning = true;
+    paused = false;
     lastTime = 0;
     spawnWave(3);
 

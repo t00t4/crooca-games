@@ -33,6 +33,7 @@ let aiScore = 0;
 let upPressed = false;
 let downPressed = false;
 let gameRunning = true;
+let paused = false;
 let gameLoopId = null;
 let lastTime = 0;
 let rallyHits = 0;
@@ -42,12 +43,25 @@ const KEY_UP = new Set(['ArrowUp', 'KeyW']);
 const KEY_DOWN = new Set(['ArrowDown', 'KeyS']);
 
 document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (gameRunning) paused = !paused;
+        return;
+    }
+    if (paused) return;
     if (KEY_UP.has(e.code)) { upPressed = true; e.preventDefault(); }
     if (KEY_DOWN.has(e.code)) { downPressed = true; e.preventDefault(); }
 });
 document.addEventListener('keyup', (e) => {
     if (KEY_UP.has(e.code)) upPressed = false;
     if (KEY_DOWN.has(e.code)) downPressed = false;
+});
+
+// Se a janela perder o foco com uma tecla pressionada, o keyup correspondente
+// nunca chega e o paddle ficaria andando sozinho para sempre.
+window.addEventListener('blur', () => {
+    upPressed = false;
+    downPressed = false;
 });
 
 document.getElementById('restartButton').addEventListener('click', startGame);
@@ -200,6 +214,18 @@ function drawOverlay() {
     ctx.fillText(`${playerScore} x ${aiScore} — clique em Restart`, W / 2, H / 2 + 24);
 }
 
+function drawPauseOverlay() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = 'bold 20px "Press Start 2P", monospace';
+    ctx.fillStyle = COLORS.player;
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSADO', W / 2, H / 2);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText('Pressione P para continuar', W / 2, H / 2 + 28);
+}
+
 function render() {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, W, H);
@@ -211,6 +237,7 @@ function render() {
     drawBall();
 
     if (!gameRunning) drawOverlay();
+    else if (paused) drawPauseOverlay();
 }
 
 function gameLoop(timestamp) {
@@ -219,7 +246,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     dt = Math.min(dt, 1 / 30);
 
-    if (gameRunning) {
+    if (gameRunning && !paused) {
         updatePlayer(dt);
         updateAI(dt);
         updateBall(dt);
@@ -236,6 +263,7 @@ function startGame() {
     player.y = H / 2 - PADDLE_H / 2;
     ai.y = H / 2 - PADDLE_H / 2;
     gameRunning = true;
+    paused = false;
     lastTime = 0;
     serveBall(Math.random() < 0.5 ? 1 : -1);
 

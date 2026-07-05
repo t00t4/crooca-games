@@ -38,6 +38,7 @@ let lives = 3;
 let level = 1;
 let ballLaunched = false;
 let gameRunning = true;
+let paused = false;
 let gameLoopId = null;
 let lastTime = 0;
 
@@ -45,6 +46,12 @@ const KEY_LEFT = new Set(['ArrowLeft', 'KeyA']);
 const KEY_RIGHT = new Set(['ArrowRight', 'KeyD']);
 
 document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (gameRunning) paused = !paused;
+        return;
+    }
+    if (paused) return;
     if (KEY_LEFT.has(e.code)) { leftPressed = true; e.preventDefault(); }
     if (KEY_RIGHT.has(e.code)) { rightPressed = true; e.preventDefault(); }
     if (e.code === 'Space') { e.preventDefault(); launchBall(); }
@@ -52,6 +59,13 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     if (KEY_LEFT.has(e.code)) leftPressed = false;
     if (KEY_RIGHT.has(e.code)) rightPressed = false;
+});
+
+// Se a janela perder o foco com uma tecla pressionada, o keyup correspondente
+// nunca chega e o paddle ficaria andando sozinho para sempre.
+window.addEventListener('blur', () => {
+    leftPressed = false;
+    rightPressed = false;
 });
 
 document.getElementById('restartButton').addEventListener('click', startGame);
@@ -251,6 +265,18 @@ function drawOverlay() {
     ctx.fillText(`Score: ${score} — clique em Restart`, W / 2, H / 2 + 24);
 }
 
+function drawPauseOverlay() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = 'bold 20px "Press Start 2P", monospace';
+    ctx.fillStyle = COLORS.paddle;
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSADO', W / 2, H / 2);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText('Pressione P para continuar', W / 2, H / 2 + 28);
+}
+
 function render() {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, W, H);
@@ -261,6 +287,7 @@ function render() {
     drawHUD();
 
     if (!gameRunning) drawOverlay();
+    else if (paused) drawPauseOverlay();
 }
 
 function gameLoop(timestamp) {
@@ -269,7 +296,7 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
     dt = Math.min(dt, 1 / 30);
 
-    if (gameRunning) {
+    if (gameRunning && !paused) {
         updatePaddle(dt);
         updateBall(dt);
     }
@@ -284,6 +311,7 @@ function startGame() {
     lives = 3;
     level = 1;
     gameRunning = true;
+    paused = false;
     lastTime = 0;
     buildBricks();
     resetBall();
